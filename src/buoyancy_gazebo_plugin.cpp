@@ -19,6 +19,7 @@
 #include "gazebo/common/Events.hh"
 //#include "plugins/BuoyancyPlugin.hh"
 #include <buoyancy_gazebo_plugin/buoyancy_gazebo_plugin.h>
+#include <ignition/math/Vector3.hh>
 
 using namespace gazebo;
 
@@ -110,8 +111,8 @@ void BuoyancyPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
 
       if (linkElem->HasElement("center_of_volume"))
       {
-	math::Vector3 cov = linkElem->GetElement("center_of_volume")
-            ->Get<math::Vector3>();
+	ignition::math::Vector3d cov = linkElem->GetElement("center_of_volume")
+            ->Get<ignition::math::Vector3d>();
         this->volPropsMap[id].cov = cov;
       }
       else
@@ -201,7 +202,7 @@ void BuoyancyPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
     if (this->volPropsMap.find(id) == this->volPropsMap.end())
     {
       double volumeSum = 0;
-      math::Vector3 weightedPosSum = math::Vector3::Zero;
+      ignition::math::Vector3d weightedPosSum = ignition::math::Vector3d::Zero;
 
       // The center of volume of the link is a weighted average over the pose
       // of each collision shape, where the weight is the volume of the shape
@@ -251,11 +252,11 @@ void BuoyancyPlugin::OnUpdate()
     double area = volumeProperties.area;
     double volume = height*area;  // default value
 
-    //math::Pose linkFrame = link->WorldPose();
-    math::Pose linkFrame = link->GetWorldPose();
+    //ignition::math::Pose linkFrame = link->WorldPose();
+    ignition::math::Pose3d linkFrame = link->WorldPose();
 
     // Location of bottom of object relative to the fluid surface - assumes origin is at cog of the object
-    double bottomRelSurf = this->fluidLevel - (linkFrame.pos.z - height/2.0);
+    double bottomRelSurf = this->fluidLevel - (linkFrame.Pos().Z() - height/2.0);
     // Adjust volume of object depending on surface interaction
     //gzmsg << "level: " << this->fluidLevel << std::endl;
     //gzmsg << "height: " << height << std::endl;
@@ -283,26 +284,26 @@ void BuoyancyPlugin::OnUpdate()
     // Therefore,
     //    math::Vector3 buoyancy =
     //    -this->fluidDensity * volume * this->model->GetWorld()->Gravity();
-    math::Vector3 gravity(0,0,-9.81);
-    math::Vector3 buoyancy =
+    ignition::math::Vector3d gravity(0,0,-9.81);
+    ignition::math::Vector3d buoyancy =
       -this->fluidDensity * volume * gravity;
     //gzmsg << "buoy " << buoyancy << std::endl;
 
     // Add some drag
     if (volume > 1e-6){
-      math::Vector3 vel = link->GetWorldLinearVel();
-      double dz = -1.0*this->fluidDrag * vel.z * std::abs(vel.z);
+      ignition::math::Vector3d vel = link->WorldLinearVel();
+      double dz = -1.0*this->fluidDrag * vel.Z() * std::abs(vel.Z());
       //gzmsg << "drag: " << dz << std::endl;
-      math::Vector3 drag(0,0,dz);
+      ignition::math::Vector3d drag(0,0,dz);
       buoyancy = buoyancy + drag;
-      if (buoyancy.z < 0.0){
-	buoyancy.z = 0.0;
+      if (buoyancy.Z() < 0.0){
+	buoyancy.Z() = 0.0;
 	}
     }
      
     // rotate buoyancy into the link frame before applying the force.
-    math::Vector3 buoyancyLinkFrame =
-      linkFrame.rot.GetInverse().RotateVector(buoyancy);
+    ignition::math::Vector3d buoyancyLinkFrame =
+      linkFrame.Rot().Inverse().RotateVector(buoyancy);
       //linkFrame.Rot().Inverse().RotateVector(buoyancy);
 
     //link->AddLinkForce(buoyancyLinkFrame, volumeProperties.cov);
